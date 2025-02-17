@@ -80,16 +80,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Function to add a new presenter
     addPresenterButton.addEventListener('click', async () => {
-        console.log("Add Presenter button clicked!"); // Debugging
-
         const presenterName = newPresenterNameInput.value.trim();
         if (!presenterName) {
             alert('Please enter a presenter name.');
             return;
         }
 
+        const url = `${scriptURL}?func=addPresenter&presenterName=${presenterName}`;  // Store URL in a variable
+        console.log("Fetch URL:", url);  // Log the URL
+
         try {
-            const response = await fetch(`${scriptURL}?func=addPresenter&presenterName=${presenterName}`);
+            const response = await fetch(url); // Use the variable
             const data = await response.json();
 
             if (data.result === 'success') {
