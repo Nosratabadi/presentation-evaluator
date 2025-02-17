@@ -21,16 +21,6 @@ const App = () => {
         'Topic Attractiveness'
     ];
 
-    const updatePresenterEvaluation = (presenterId, evaluation) => {
-        setPresenters(prevPresenters => 
-            prevPresenters.map(p => 
-                p.id === presenterId
-                    ? { ...p, evaluations: [...p.evaluations, evaluation] }
-                    : p
-            )
-        );
-    };
-
     return React.createElement('div', { className: 'min-h-screen bg-gray-100 p-8' },
         currentView === 'list' 
             ? React.createElement(PresenterList, {
@@ -59,20 +49,85 @@ const App = () => {
                 criteria,
                 onBack: () => setCurrentView('list'),
                 onNewEvaluation: (evaluation) => {
-                    updatePresenterEvaluation(currentPresenter.id, evaluation);
+                    const updatedPresenters = presenters.map(p => 
+                        p.id === currentPresenter.id 
+                            ? { ...p, evaluations: [...p.evaluations, evaluation] }
+                            : p
+                    );
+                    setPresenters(updatedPresenters);
                 }
             })
     );
 };
 
-// Presenter List Component remains the same...
+// Presenter List Component
+const PresenterList = ({ presenters, newPresenterName, setNewPresenterName, addPresenter, onPresenterClick }) => {
+    return React.createElement('div', { className: 'max-w-4xl mx-auto' },
+        React.createElement('h1', { className: 'text-3xl font-bold mb-8' }, 'Presentation Evaluations'),
+        
+        React.createElement('form', { 
+            onSubmit: addPresenter,
+            className: 'mb-8 bg-white p-6 rounded-lg shadow-sm'
+        },
+            React.createElement('h2', { className: 'text-xl font-semibold mb-4' }, 'Add New Presenter'),
+            React.createElement('div', { className: 'flex gap-4' },
+                React.createElement('input', {
+                    type: 'text',
+                    value: newPresenterName,
+                    onChange: (e) => setNewPresenterName(e.target.value),
+                    placeholder: 'Enter presenter name',
+                    className: 'flex-1 p-2 border rounded'
+                }),
+                React.createElement('button', {
+                    type: 'submit',
+                    className: 'bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600'
+                }, 'Add Presenter')
+            )
+        ),
 
-// Modified Evaluation View Component
+        React.createElement('div', { className: 'space-y-4' },
+            presenters.map(presenter => {
+                const totalScore = presenter.evaluations.reduce((sum, eval) => 
+                    sum + Object.values(eval.scores).reduce((a, b) => a + b, 0), 0);
+                const averageScore = presenter.evaluations.length 
+                    ? (totalScore / presenter.evaluations.length).toFixed(1) 
+                    : 0;
+
+                return React.createElement('div', {
+                    key: presenter.id,
+                    onClick: () => onPresenterClick(presenter),
+                    className: 'bg-white p-6 rounded-lg shadow-sm hover:shadow-md cursor-pointer transition-shadow'
+                },
+                    React.createElement('div', { className: 'flex justify-between items-center' },
+                        React.createElement('h3', { className: 'text-xl font-semibold' }, presenter.name),
+                        React.createElement('div', { className: 'flex items-center gap-4' },
+                            React.createElement('span', { className: 'text-gray-600' },
+                                `${presenter.evaluations.length} evaluations`
+                            ),
+                            React.createElement('div', { className: 'flex items-center gap-2' },
+                                React.createElement('div', { className: 'w-32 h-2 bg-gray-200 rounded' },
+                                    React.createElement('div', {
+                                        className: 'h-full bg-green-500 rounded',
+                                        style: { width: `${(averageScore / 40) * 100}%` }
+                                    })
+                                ),
+                                React.createElement('span', { className: 'font-semibold' },
+                                    `${averageScore}/40`
+                                )
+                            )
+                        )
+                    )
+                );
+            })
+        )
+    );
+};
+
+// Evaluation View Component
 const EvaluationView = ({ presenter, criteria, onBack, onNewEvaluation }) => {
     const [scores, setScores] = useState({});
     const [error, setError] = useState('');
     const [evaluatorName, setEvaluatorName] = useState('');
-    const [evaluations, setEvaluations] = useState(presenter.evaluations);
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -83,7 +138,7 @@ const EvaluationView = ({ presenter, criteria, onBack, onNewEvaluation }) => {
         }
 
         // Check if this evaluator has already submitted
-        const hasSubmitted = evaluations.some(eval => eval.evaluatorName === evaluatorName);
+        const hasSubmitted = presenter.evaluations.some(eval => eval.evaluatorName === evaluatorName);
         if (hasSubmitted) {
             setError('You have already submitted an evaluation');
             return;
@@ -101,11 +156,7 @@ const EvaluationView = ({ presenter, criteria, onBack, onNewEvaluation }) => {
             timestamp: new Date().toISOString()
         };
 
-        // Update local state immediately
-        setEvaluations(prev => [...prev, evaluation]);
         onNewEvaluation(evaluation);
-        
-        // Reset form
         setScores({});
         setEvaluatorName('');
         setError('');
@@ -137,7 +188,7 @@ const EvaluationView = ({ presenter, criteria, onBack, onNewEvaluation }) => {
                         )
                     ),
                     React.createElement('tbody', null,
-                        evaluations.map((eval, index) => {
+                        presenter.evaluations.map((eval, index) => {
                             const total = Object.values(eval.scores).reduce((a, b) => a + b, 0);
                             return React.createElement('tr', { key: eval.id },
                                 React.createElement('td', { className: 'border px-4 py-2' }, index + 1),
