@@ -17,10 +17,10 @@ const App = () => {
             const result = await response.json();
             if (result.status === 'success') {
                 setPresenters(result.data || []);
+                setError(null);
             } else {
                 throw new Error(result.message || 'Failed to fetch data');
             }
-            setError(null);
         } catch (err) {
             console.error('Fetch error:', err);
             setError('Failed to load presenters: ' + err.message);
@@ -44,13 +44,9 @@ const App = () => {
         e.preventDefault();
         if (!newPresenterName.trim()) return;
 
+        setLoading(true);
         try {
-            const params = new URLSearchParams({
-                action: 'addPresenter',
-                name: newPresenterName
-            });
-
-            const response = await fetch(`${GOOGLE_SCRIPT_URL}?${params.toString()}`);
+            const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=addPresenter&name=${encodeURIComponent(newPresenterName.trim())}`);
             const result = await response.json();
 
             if (result.status === 'success') {
@@ -63,6 +59,37 @@ const App = () => {
         } catch (err) {
             console.error('Add presenter error:', err);
             setError('Failed to add presenter: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleNewEvaluation = async (evaluation) => {
+        try {
+            const params = new URLSearchParams({
+                action: 'addEvaluation',
+                presenterName: currentPresenter.name,
+                evaluatorName: evaluation.evaluatorName,
+                materialQuality: evaluation.scores['Material Quality'],
+                knowledgeDepth: evaluation.scores['Knowledge Depth'],
+                presentationStyle: evaluation.scores['Presentation Style'],
+                topicAttractiveness: evaluation.scores['Topic Attractiveness']
+            });
+
+            const response = await fetch(`${GOOGLE_SCRIPT_URL}?${params.toString()}`);
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                await fetchPresenters();
+                setError(null);
+                return true;
+            } else {
+                throw new Error(result.message || 'Failed to add evaluation');
+            }
+        } catch (err) {
+            console.error('Add evaluation error:', err);
+            setError('Failed to add evaluation: ' + err.message);
+            return false;
         }
     };
 
@@ -88,32 +115,7 @@ const App = () => {
                         setCurrentView('list');
                         fetchPresenters();
                     },
-                    onNewEvaluation: async (evaluation) => {
-                        try {
-                            const params = new URLSearchParams({
-                                action: 'addEvaluation',
-                                presenterName: currentPresenter.name,
-                                evaluatorName: evaluation.evaluatorName,
-                                'scores[Material Quality]': evaluation.scores['Material Quality'],
-                                'scores[Knowledge Depth]': evaluation.scores['Knowledge Depth'],
-                                'scores[Presentation Style]': evaluation.scores['Presentation Style'],
-                                'scores[Topic Attractiveness]': evaluation.scores['Topic Attractiveness']
-                            });
-
-                            const response = await fetch(`${GOOGLE_SCRIPT_URL}?${params.toString()}`);
-                            const result = await response.json();
-
-                            if (result.status === 'success') {
-                                await fetchPresenters();
-                                setError(null);
-                            } else {
-                                throw new Error(result.message || 'Failed to add evaluation');
-                            }
-                        } catch (err) {
-                            console.error('Add evaluation error:', err);
-                            setError('Failed to add evaluation: ' + err.message);
-                        }
-                    }
+                    onNewEvaluation: handleNewEvaluation
                 })
     );
 };
@@ -217,16 +219,17 @@ const EvaluationView = ({ presenter, criteria, onBack, onNewEvaluation }) => {
             timestamp: new Date().toISOString()
         };
 
-        // Update local state first
-        setLocalEvaluations(prev => [...prev, evaluation]);
+        // Update parent state and check if successful
+        const success = await onNewEvaluation(evaluation);
         
-        // Then update parent state
-        await onNewEvaluation(evaluation);
-
-        // Reset form
-        setScores({});
-        setEvaluatorName('');
-        setError('');
+        if (success) {
+            // Update local state
+            setLocalEvaluations(prev => [...prev, evaluation]);
+            // Reset form
+            setScores({});
+            setEvaluatorName('');
+            setError('');
+        }
     };
 
     return React.createElement('div', { className: 'max-w-4xl mx-auto' },
