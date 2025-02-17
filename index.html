@@ -6,19 +6,10 @@
     <title>Presentation Evaluation</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
-        /* Custom styles for progress bars */
-        .progress-bar {
-            width: 100%;
-            background-color: #f3f3f3;
-            border-radius: 5px;
-            overflow: hidden;
-        }
-
-        .progress-bar-inner {
-            height: 10px;
-            background-color: #4caf50; /* Green */
-            width: 0%; /* Dynamically set width */
-        }
+    /* Initially hide evaluation form */
+    #evaluation-form {
+        display: none;
+    }
     </style>
 </head>
 <body class="bg-gray-100 p-8">
@@ -33,15 +24,21 @@
             <button id="add-presenter-button" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-2">Add Presenter</button>
         </div>
 
+        <!-- Presenter List -->
+        <div id="presenter-list" class="mb-4">
+            <h2 class="text-lg font-semibold mb-2">Presenters</h2>
+            <ul id="presenter-list-ul">
+                <!-- Presenter List will be populated here -->
+            </ul>
+        </div>
+
         <!-- Evaluation Form -->
         <div id="evaluation-form" class="mb-4">
-            <h2 class="text-lg font-semibold mb-2">Submit Evaluation</h2>
-            <label for="presenter-select" class="block text-gray-700 text-sm font-bold mb-2">Presenter:</label>
-            <select id="presenter-select" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"></select>
+            <h2 id="evaluation-title" class="text-lg font-semibold mb-2">Evaluate Presenter</h2>
 
+            <input type="hidden" id="presenter-select">
             <label for="evaluator-name" class="block text-gray-700 text-sm font-bold mb-2">Your Name:</label>
             <input type="text" id="evaluator-name" placeholder="Your Name" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-
 
             <div class="mb-2">
                 <label for="material-quality" class="block text-gray-700 text-sm font-bold mb-2">Material Quality (0-10):</label>
@@ -66,23 +63,8 @@
             <button id="submit-evaluation-button" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mt-2">Submit Evaluation</button>
         </div>
 
-        <!-- Presenter List -->
-        <div id="presenter-list" class="mb-4">
-            <h2 class="text-lg font-semibold mb-2">Presenters and Average Scores</h2>
-            <table class="table-auto w-full">
-                <thead>
-                    <tr>
-                        <th class="px-4 py-2">Presenter Name</th>
-                        <th class="px-4 py-2">Material Quality</th>
-                        <th class="px-4 py-2">Knowledge Depth</th>
-                        <th class="px-4 py-2">Presentation Style</th>
-                        <th class="px-4 py-2">Topic Attractiveness</th>
-                        <th class="px-4 py-2">Evaluation History</th>
-                    </tr>
-                </thead>
-                <tbody id="presenter-table-body">
-                </tbody>
-            </table>
+        <div id="presenter-list-container">
+
         </div>
 
         <!-- Evaluation History Modal -->
