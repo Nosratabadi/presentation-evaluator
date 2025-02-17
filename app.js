@@ -2,17 +2,33 @@ const { useState, useEffect } = React;
 
 // Main App Component
 const App = () => {
-    const [presenters, setPresenters] = useState(() => {
-        const saved = localStorage.getItem('presenters');
-        return saved ? JSON.parse(saved) : [];
-    });
+    const [presenters, setPresenters] = useState([]);
     const [currentView, setCurrentView] = useState('list');
     const [currentPresenter, setCurrentPresenter] = useState(null);
     const [newPresenterName, setNewPresenterName] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    // Replace this URL with your Google Apps Script web app URL
+    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxjkuLQSIkrn_UH8xQrdfo2a8c_88QMvrshneLaX83FHhgXSpXxoA2uutE4sPC0_OLA2Q/exec';
+
+    const fetchPresenters = async () => {
+        try {
+            const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getPresenters`);
+            const result = await response.json();
+            if (result.status === 'success') {
+                setPresenters(result.data);
+            }
+        } catch (err) {
+            setError('Failed to load presenters');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        localStorage.setItem('presenters', JSON.stringify(presenters));
-    }, [presenters]);
+        fetchPresenters();
+    }, []);
 
     const criteria = [
         'Material Quality',
@@ -22,41 +38,66 @@ const App = () => {
     ];
 
     return React.createElement('div', { className: 'min-h-screen bg-gray-100 p-8' },
-        currentView === 'list' 
-            ? React.createElement(PresenterList, {
-                presenters,
-                newPresenterName,
-                setNewPresenterName,
-                addPresenter: (e) => {
-                    e.preventDefault();
-                    if (newPresenterName.trim()) {
-                        const newPresenter = {
-                            id: Date.now(),
-                            name: newPresenterName,
-                            evaluations: []
-                        };
-                        setPresenters([...presenters, newPresenter]);
-                        setNewPresenterName('');
+        error && React.createElement('div', { className: 'bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4' }, error),
+        loading ? 
+            React.createElement('div', { className: 'text-center' }, 'Loading...') :
+            currentView === 'list' 
+                ? React.createElement(PresenterList, {
+                    presenters,
+                    newPresenterName,
+                    setNewPresenterName,
+                    addPresenter: async (e) => {
+                        e.preventDefault();
+                        if (newPresenterName.trim()) {
+                            try {
+                                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                                    method: 'POST',
+                                    body: JSON.stringify({
+                                        action: 'addPresenter',
+                                        name: newPresenterName
+                                    })
+                                });
+                                const result = await response.json();
+                                if (result.status === 'success') {
+                                    await fetchPresenters();
+                                    setNewPresenterName('');
+                                }
+                            } catch (err) {
+                                setError('Failed to add presenter');
+                            }
+                        }
+                    },
+                    onPresenterClick: (presenter) => {
+                        setCurrentPresenter(presenter);
+                        setCurrentView('evaluate');
                     }
-                },
-                onPresenterClick: (presenter) => {
-                    setCurrentPresenter(presenter);
-                    setCurrentView('evaluate');
-                }
-            })
-            : React.createElement(EvaluationView, {
-                presenter: currentPresenter,
-                criteria,
-                onBack: () => setCurrentView('list'),
-                onNewEvaluation: (evaluation) => {
-                    const updatedPresenters = presenters.map(p => 
-                        p.id === currentPresenter.id 
-                            ? { ...p, evaluations: [...p.evaluations, evaluation] }
-                            : p
-                    );
-                    setPresenters(updatedPresenters);
-                }
-            })
+                })
+                : React.createElement(EvaluationView, {
+                    presenter: currentPresenter,
+                    criteria,
+                    onBack: () => {
+                        setCurrentView('list');
+                        fetchPresenters();
+                    },
+                    onNewEvaluation: async (evaluation) => {
+                        try {
+                            const response = await fetch(GOOGLE_SCRIPT_URL, {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                    action: 'addEvaluation',
+                                    presenterName: currentPresenter.name,
+                                    ...evaluation
+                                })
+                            });
+                            const result = await response.json();
+                            if (result.status === 'success') {
+                                await fetchPresenters();
+                            }
+                        } catch (err) {
+                            setError('Failed to add evaluation');
+                        }
+                    }
+                })
     );
 };
 
@@ -94,7 +135,7 @@ const PresenterList = ({ presenters, newPresenterName, setNewPresenterName, addP
                     : 0;
 
                 return React.createElement('div', {
-                    key: presenter.id,
+                    key: presenter.id || presenter.name,
                     onClick: () => onPresenterClick(presenter),
                     className: 'bg-white p-6 rounded-lg shadow-sm hover:shadow-md cursor-pointer transition-shadow'
                 },
@@ -154,7 +195,6 @@ const EvaluationView = ({ presenter, criteria, onBack, onNewEvaluation }) => {
         }
 
         const evaluation = {
-            id: Date.now(),
             evaluatorName,
             scores,
             timestamp: new Date().toISOString()
@@ -164,7 +204,7 @@ const EvaluationView = ({ presenter, criteria, onBack, onNewEvaluation }) => {
         setLocalEvaluations(prev => [...prev, evaluation]);
         
         // Then update parent state
-        onNewEvaluation(evaluation);
+        await onNewEvaluation(evaluation);
 
         // Reset form
         setScores({});
@@ -200,7 +240,7 @@ const EvaluationView = ({ presenter, criteria, onBack, onNewEvaluation }) => {
                     React.createElement('tbody', null,
                         localEvaluations.map((eval, index) => {
                             const total = Object.values(eval.scores).reduce((a, b) => a + b, 0);
-                            return React.createElement('tr', { key: eval.id },
+                            return React.createElement('tr', { key: eval.timestamp || index },
                                 React.createElement('td', { className: 'border px-4 py-2' }, index + 1),
                                 React.createElement('td', { className: 'border px-4 py-2' }, eval.evaluatorName),
                                 ...criteria.map(criterion =>
