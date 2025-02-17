@@ -1,329 +1,204 @@
-const { useState, useEffect } = React;
+const scriptURL = 'https://script.google.com/macros/s/AKfycbxrEpYMHODlmG1aZStirM2RYk7_p9MPKQR1er0LQALoF-es06c39hVZ2IuDksfGannwmg/exec'; // Replace with your actual Web App URL
 
-// Main App Component
-const App = () => {
-    const [presenters, setPresenters] = useState([]);
-    const [currentView, setCurrentView] = useState('list');
-    const [currentPresenter, setCurrentPresenter] = useState(null);
-    const [newPresenterName, setNewPresenterName] = useState('');
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+document.addEventListener('DOMContentLoaded', () => {
+    const addPresenterForm = document.getElementById('add-presenter-form');
+    const addPresenterButton = document.getElementById('add-presenter-button');
+    const newPresenterNameInput = document.getElementById('new-presenter-name');
 
-    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw4KSx7-pblBtdT6RAhTpYDsnXwYohC6mV4tOdpbRSPRyMPdOQiBKbSAgxmslNjuXmWnw/exec';
+    const evaluationForm = document.getElementById('evaluation-form');
+    const presenterSelect = document.getElementById('presenter-select');
+    const evaluatorNameInput = document.getElementById('evaluator-name');
+    const materialQualityInput = document.getElementById('material-quality');
+    const knowledgeDepthInput = document.getElementById('knowledge-depth');
+    const presentationStyleInput = document.getElementById('presentation-style');
+    const topicAttractivenessInput = document.getElementById('topic-attractiveness');
+    const submitEvaluationButton = document.getElementById('submit-evaluation-button');
 
-    const fetchPresenters = async () => {
+    const presenterList = document.getElementById('presenter-list');
+    const presenterTableBody = document.getElementById('presenter-table-body');
+
+    const evaluationHistoryModal = document.getElementById('evaluation-history-modal');
+    const evaluationHistoryContent = document.getElementById('evaluation-history-content');
+    const closeModalButton = document.getElementById('close-modal-button');
+
+    // Function to fetch and display presenters
+    async function loadPresenters() {
         try {
-            const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getPresenters`);
-            const result = await response.json();
-            if (result.status === 'success') {
-                setPresenters(result.data || []);
-                setError(null);
+            const response = await fetch(`${scriptURL}?func=getPresenters`);
+            const data = await response.json();
+
+            if (data.result === 'success') {
+                presenterSelect.innerHTML = ''; // Clear existing options
+                presenterTableBody.innerHTML = '';  //Clear the table body
+
+                data.presenters.forEach(presenter => {
+                    // Add option to select
+                    const option = document.createElement('option');
+                    option.value = presenter.name;
+                    option.textContent = presenter.name;
+                    presenterSelect.appendChild(option);
+
+
+                    //Add presenter to table
+                    const row = presenterTableBody.insertRow();
+                    const nameCell = row.insertCell();
+                    const materialQualityCell = row.insertCell();
+                    const knowledgeDepthCell = row.insertCell();
+                    const presentationStyleCell = row.insertCell();
+                    const topicAttractivenessCell = row.insertCell();
+                    const historyCell = row.insertCell();
+
+                    nameCell.textContent = presenter.name;
+
+                    //Create progress bar
+                    materialQualityCell.innerHTML = createProgressBar(presenter.materialQualityAvg);
+                    knowledgeDepthCell.innerHTML = createProgressBar(presenter.knowledgeDepthAvg);
+                    presentationStyleCell.innerHTML = createProgressBar(presenter.presentationStyleAvg);
+                    topicAttractivenessCell.innerHTML = createProgressBar(presenter.topicAttractivenessAvg);
+
+                    const historyButton = document.createElement('button');
+                    historyButton.textContent = 'View History';
+                    historyButton.classList.add('bg-purple-500', 'hover:bg-purple-700', 'text-white', 'font-bold', 'py-2', 'px-4', 'rounded');
+                    historyButton.addEventListener('click', () => showEvaluationHistory(presenter.name));
+                    historyCell.appendChild(historyButton);
+
+                });
             } else {
-                throw new Error(result.message || 'Failed to fetch data');
+                alert('Error loading presenters: ' + data.error);
             }
-        } catch (err) {
-            console.error('Fetch error:', err);
-            setError('Failed to load presenters: ' + err.message);
-        } finally {
-            setLoading(false);
+        } catch (error) {
+            console.error('Error loading presenters:', error);
+            alert('Error loading presenters.');
         }
-    };
+    }
 
-    useEffect(() => {
-        fetchPresenters();
-    }, []);
 
-    const criteria = [
-        'Material Quality',
-        'Knowledge Depth',
-        'Presentation Style',
-        'Topic Attractiveness'
-    ];
+    //Helper function to create progress bars
+    function createProgressBar(value) {
+        const percentage = (value / 10) * 100;  //Assuming max score is 10
+        return `
+            <div class="progress-bar">
+                <div class="progress-bar-inner" style="width: ${percentage}%;"></div>
+                <span>${value ? value.toFixed(2) : 0}</span>
+            </div>
+        `;
+    }
 
-    const addNewPresenter = async (e) => {
-        e.preventDefault();
-        if (!newPresenterName.trim()) return;
 
-        setLoading(true);
+    //Function to show evaluation history
+    async function showEvaluationHistory(presenterName) {
         try {
-            const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=addPresenter&name=${encodeURIComponent(newPresenterName.trim())}`);
-            const result = await response.json();
+            const response = await fetch(`${scriptURL}?func=getEvaluationsForPresenter&presenterName=${presenterName}`);
+            const data = await response.json();
 
-            if (result.status === 'success') {
-                await fetchPresenters();
-                setNewPresenterName('');
-                setError(null);
+            if (data.result === 'success') {
+                evaluationHistoryContent.innerHTML = ''; //Clear previous content
+
+                if (data.evaluations.length === 0) {
+                    evaluationHistoryContent.textContent = 'No evaluations yet for this presenter.';
+                } else {
+                    const ul = document.createElement('ul');
+                    data.evaluations.forEach(evaluation => {
+                        const li = document.createElement('li');
+                        li.textContent = `Evaluator: ${evaluation.evaluatorName}, Material: ${evaluation.materialQuality}, Knowledge: ${evaluation.knowledgeDepth}, Style: ${evaluation.presentationStyle}, Topic: ${evaluation.topicAttractiveness}, Timestamp: ${new Date(evaluation.timestamp).toLocaleString()}`;
+                        ul.appendChild(li);
+                    });
+                    evaluationHistoryContent.appendChild(ul);
+                }
+
+
+                evaluationHistoryModal.classList.remove('hidden');  //Show the modal
             } else {
-                throw new Error(result.message || 'Failed to add presenter');
+                alert('Error loading evaluation history: ' + data.error);
             }
-        } catch (err) {
-            console.error('Add presenter error:', err);
-            setError('Failed to add presenter: ' + err.message);
-        } finally {
-            setLoading(false);
+
+        } catch (error) {
+            console.error('Error loading evaluation history', error);
+            alert('Error loading evaluation history.');
         }
-    };
+    }
 
-    const handleNewEvaluation = async (evaluation) => {
-        try {
-            const params = new URLSearchParams({
-                action: 'addEvaluation',
-                presenterName: currentPresenter.name,
-                evaluatorName: evaluation.evaluatorName,
-                materialQuality: evaluation.scores['Material Quality'],
-                knowledgeDepth: evaluation.scores['Knowledge Depth'],
-                presentationStyle: evaluation.scores['Presentation Style'],
-                topicAttractiveness: evaluation.scores['Topic Attractiveness']
-            });
+    //Event listener for closing the modal
+    closeModalButton.addEventListener('click', () => {
+        evaluationHistoryModal.classList.add('hidden');
+    });
 
-            const response = await fetch(`${GOOGLE_SCRIPT_URL}?${params.toString()}`);
-            const result = await response.json();
 
-            if (result.status === 'success') {
-                await fetchPresenters();
-                setError(null);
-                return true;
-            } else {
-                throw new Error(result.message || 'Failed to add evaluation');
-            }
-        } catch (err) {
-            console.error('Add evaluation error:', err);
-            setError('Failed to add evaluation: ' + err.message);
-            return false;
-        }
-    };
-
-    return React.createElement('div', { className: 'min-h-screen bg-gray-100 p-8' },
-        error && React.createElement('div', { className: 'bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4' }, error),
-        loading ? 
-            React.createElement('div', { className: 'text-center' }, 'Loading...') :
-            currentView === 'list' 
-                ? React.createElement(PresenterList, {
-                    presenters,
-                    newPresenterName,
-                    setNewPresenterName,
-                    addPresenter: addNewPresenter,
-                    onPresenterClick: (presenter) => {
-                        setCurrentPresenter(presenter);
-                        setCurrentView('evaluate');
-                    }
-                })
-                : React.createElement(EvaluationView, {
-                    presenter: currentPresenter,
-                    criteria,
-                    onBack: () => {
-                        setCurrentView('list');
-                        fetchPresenters();
-                    },
-                    onNewEvaluation: handleNewEvaluation
-                })
-    );
-};
-
-// Presenter List Component
-const PresenterList = ({ presenters, newPresenterName, setNewPresenterName, addPresenter, onPresenterClick }) => {
-    return React.createElement('div', { className: 'max-w-4xl mx-auto' },
-        React.createElement('h1', { className: 'text-3xl font-bold mb-8' }, 'Presentation Evaluations'),
-        
-        React.createElement('form', { 
-            onSubmit: addPresenter,
-            className: 'mb-8 bg-white p-6 rounded-lg shadow-sm'
-        },
-            React.createElement('h2', { className: 'text-xl font-semibold mb-4' }, 'Add New Presenter'),
-            React.createElement('div', { className: 'flex gap-4' },
-                React.createElement('input', {
-                    type: 'text',
-                    value: newPresenterName,
-                    onChange: (e) => setNewPresenterName(e.target.value),
-                    placeholder: 'Enter presenter name',
-                    className: 'flex-1 p-2 border rounded'
-                }),
-                React.createElement('button', {
-                    type: 'submit',
-                    className: 'bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600'
-                }, 'Add Presenter')
-            )
-        ),
-
-        React.createElement('div', { className: 'space-y-4' },
-            presenters.map(presenter => {
-                const totalScore = presenter.evaluations.reduce((sum, eval) => 
-                    sum + Object.values(eval.scores).reduce((a, b) => a + b, 0), 0);
-                const averageScore = presenter.evaluations.length 
-                    ? (totalScore / presenter.evaluations.length).toFixed(1) 
-                    : 0;
-
-                return React.createElement('div', {
-                    key: presenter.name,
-                    onClick: () => onPresenterClick(presenter),
-                    className: 'bg-white p-6 rounded-lg shadow-sm hover:shadow-md cursor-pointer transition-shadow'
-                },
-                    React.createElement('div', { className: 'flex justify-between items-center' },
-                        React.createElement('h3', { className: 'text-xl font-semibold' }, presenter.name),
-                        React.createElement('div', { className: 'flex items-center gap-4' },
-                            React.createElement('span', { className: 'text-gray-600' },
-                                `${presenter.evaluations.length} evaluations`
-                            ),
-                            React.createElement('div', { className: 'flex items-center gap-2' },
-                                React.createElement('div', { className: 'w-32 h-2 bg-gray-200 rounded' },
-                                    React.createElement('div', {
-                                        className: 'h-full bg-green-500 rounded',
-                                        style: { width: `${(averageScore / 40) * 100}%` }
-                                    })
-                                ),
-                                React.createElement('span', { className: 'font-semibold' },
-                                    `${averageScore}/40`
-                                )
-                            )
-                        )
-                    )
-                );
-            })
-        )
-    );
-};
-
-// Evaluation View Component
-const EvaluationView = ({ presenter, criteria, onBack, onNewEvaluation }) => {
-    const [scores, setScores] = useState({});
-    const [error, setError] = useState('');
-    const [evaluatorName, setEvaluatorName] = useState('');
-    const [localEvaluations, setLocalEvaluations] = useState(presenter.evaluations);
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        
-        if (!evaluatorName.trim()) {
-            setError('Please enter your name');
+    // Function to add a new presenter
+    addPresenterButton.addEventListener('click', async () => {
+        const presenterName = newPresenterNameInput.value.trim();
+        if (!presenterName) {
+            alert('Please enter a presenter name.');
             return;
         }
 
-        // Strict check for duplicate evaluator
-        const hasSubmitted = localEvaluations.some(eval => 
-            eval.evaluatorName.toLowerCase().trim() === evaluatorName.toLowerCase().trim()
-        );
-        
-        if (hasSubmitted) {
-            setError('You have already submitted an evaluation');
+        try {
+            const response = await fetch(`${scriptURL}?func=addPresenter&presenterName=${presenterName}`);
+            const data = await response.json();
+
+            if (data.result === 'success') {
+                newPresenterNameInput.value = ''; // Clear the input
+                loadPresenters(); // Reload the presenter list
+            } else {
+                alert('Error adding presenter: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Error adding presenter:', error);
+            alert('Error adding presenter.');
+        }
+    });
+
+    // Function to submit an evaluation
+    submitEvaluationButton.addEventListener('click', async () => {
+        const presenterName = presenterSelect.value;
+        const evaluatorName = evaluatorNameInput.value.trim();  //Added evaluator name
+        const materialQuality = materialQualityInput.value;
+        const knowledgeDepth = knowledgeDepthInput.value;
+        const presentationStyle = presentationStyleInput.value;
+        const topicAttractiveness = topicAttractivenessInput.value;
+
+        if (!evaluatorName) {
+            alert("Please enter your name.");
             return;
         }
 
-        if (Object.keys(scores).length !== criteria.length) {
-            setError('Please provide scores for all criteria');
+        if (!presenterName || !materialQuality || !knowledgeDepth || !presentationStyle || !topicAttractiveness) {
+            alert('Please fill out all evaluation fields.');
             return;
         }
 
-        const evaluation = {
-            evaluatorName,
-            scores,
-            timestamp: new Date().toISOString()
-        };
+        try {
+            const params = new URLSearchParams();
+            params.append('func', 'submitEvaluation');
+            params.append('presenterName', presenterName);
+            params.append('evaluatorName', evaluatorName); //Added evaluator name
+            params.append('materialQuality', materialQuality);
+            params.append('knowledgeDepth', knowledgeDepth);
+            params.append('presentationStyle', presentationStyle);
+            params.append('topicAttractiveness', topicAttractiveness);
 
-        // Update parent state and check if successful
-        const success = await onNewEvaluation(evaluation);
-        
-        if (success) {
-            // Update local state
-            setLocalEvaluations(prev => [...prev, evaluation]);
-            // Reset form
-            setScores({});
-            setEvaluatorName('');
-            setError('');
+            const response = await fetch(scriptURL + '?' + params.toString());
+            const data = await response.json();
+
+            if (data.result === 'success') {
+                //Clear form
+                evaluatorNameInput.value = '';
+                materialQualityInput.value = '';
+                knowledgeDepthInput.value = '';
+                presentationStyleInput.value = '';
+                topicAttractivenessInput.value = '';
+
+                loadPresenters(); // Reload the presenter list
+                alert('Evaluation submitted successfully!');
+            } else {
+                alert('Error submitting evaluation: ' + data.error);
+            }
+        } catch (error) {
+            console.error('Error submitting evaluation:', error);
+            alert('Error submitting evaluation.');
         }
-    };
+    });
 
-    return React.createElement('div', { className: 'max-w-4xl mx-auto' },
-        React.createElement('button', {
-            onClick: onBack,
-            className: 'mb-4 flex items-center gap-2 text-gray-600 hover:text-gray-800'
-        }, '← Back to List'),
-
-        React.createElement('div', { className: 'bg-white p-6 rounded-lg shadow-sm' },
-            React.createElement('h2', { className: 'text-2xl font-bold mb-6' }, `Evaluate: ${presenter.name}`),
-
-            React.createElement('div', { className: 'mb-8' },
-                React.createElement('h3', { className: 'text-xl font-semibold mb-4' }, 'Previous Evaluations'),
-                React.createElement('table', { className: 'w-full' },
-                    React.createElement('thead', null,
-                        React.createElement('tr', null,
-                            React.createElement('th', { className: 'px-4 py-2 text-left' }, '#'),
-                            React.createElement('th', { className: 'px-4 py-2 text-left' }, 'Evaluator'),
-                            ...criteria.map(criterion =>
-                                React.createElement('th', { 
-                                    key: criterion,
-                                    className: 'px-4 py-2 text-left'
-                                }, criterion)
-                            ),
-                            React.createElement('th', { className: 'px-4 py-2 text-left' }, 'Total')
-                        )
-                    ),
-                    React.createElement('tbody', null,
-                        localEvaluations.map((eval, index) => {
-                            const total = Object.values(eval.scores).reduce((a, b) => a + b, 0);
-                            return React.createElement('tr', { key: eval.timestamp || index },
-                                React.createElement('td', { className: 'border px-4 py-2' }, index + 1),
-                                React.createElement('td', { className: 'border px-4 py-2' }, eval.evaluatorName),
-                                ...criteria.map(criterion =>
-                                    React.createElement('td', { 
-                                        key: criterion,
-                                        className: 'border px-4 py-2'
-                                    }, eval.scores[criterion])
-                                ),
-                                React.createElement('td', { className: 'border px-4 py-2 font-semibold' }, total)
-                            );
-                        })
-                    )
-                )
-            ),
-
-            React.createElement('form', { 
-                onSubmit: handleSubmit,
-                className: 'space-y-4'
-            },
-                React.createElement('h3', { className: 'text-xl font-semibold' }, 'New Evaluation'),
-                React.createElement('div', { className: 'mb-4' },
-                    React.createElement('label', { className: 'mb-1 block' }, 'Your Name'),
-                    React.createElement('input', {
-                        type: 'text',
-                        value: evaluatorName,
-                        onChange: (e) => setEvaluatorName(e.target.value),
-                        className: 'p-2 border rounded w-full',
-                        placeholder: 'Enter your name'
-                    })
-                ),
-                React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
-                    criteria.map(criterion =>
-                        React.createElement('div', { key: criterion, className: 'flex flex-col' },
-                            React.createElement('label', { className: 'mb-1' }, criterion),
-                            React.createElement('input', {
-                                type: 'number',
-                                min: '0',
-                                max: '10',
-                                value: scores[criterion] || '',
-                                onChange: (e) => {
-                                    const score = parseInt(e.target.value);
-                                    if (isNaN(score) || score < 0 || score > 10) return;
-                                    setScores(prev => ({ ...prev, [criterion]: score }));
-                                    setError('');
-                                },
-                                className: 'p-2 border rounded',
-                                placeholder: '0-10'
-                            })
-                        )
-                    )
-                ),
-                error && React.createElement('p', { className: 'text-red-500' }, error),
-                React.createElement('button', {
-                    type: 'submit',
-                    className: 'bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600'
-                }, 'Submit Evaluation')
-            )
-        )
-    );
-};
-
-// Render the app
-ReactDOM.render(
-    React.createElement(App),
-    document.getElementById('root')
-);
+    // Load presenters on page load
+    loadPresenters();
+});
