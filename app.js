@@ -9,7 +9,7 @@ const App = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzexfMsklPUqktK6FkSTqmygQnWKJwuWpjAiUd8BZjjCRCbykdx_ZiFvvhXhmrZbIHfnQ/exec';
+    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyTmecrHh64MzoUZAAbxu_La8o2GBjks44ZOrSuKCXUskCRAtQ3XCmDdcEl7rZZS34R3A/exec';
 
     const fetchPresenters = async () => {
         try {
