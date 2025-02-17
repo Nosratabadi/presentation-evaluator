@@ -5,6 +5,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const addPresenterButton = document.getElementById('add-presenter-button');
     const newPresenterNameInput = document.getElementById('new-presenter-name');
 
+    const presenterListDiv = document.getElementById('presenter-list');
+    const presenterList = document.getElementById('presenter-list-ul');
+
     const evaluationForm = document.getElementById('evaluation-form');
     const presenterSelect = document.getElementById('presenter-select');
     const evaluatorNameInput = document.getElementById('evaluator-name');
@@ -14,12 +17,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const topicAttractivenessInput = document.getElementById('topic-attractiveness');
     const submitEvaluationButton = document.getElementById('submit-evaluation-button');
 
-    const presenterList = document.getElementById('presenter-list');
-    const presenterTableBody = document.getElementById('presenter-table-body');
+    const presenterListContainer = document.getElementById('presenter-list-container');
 
     const evaluationHistoryModal = document.getElementById('evaluation-history-modal');
     const evaluationHistoryContent = document.getElementById('evaluation-history-content');
     const closeModalButton = document.getElementById('close-modal-button');
+
+    let currentPresenterName = null; // Track the presenter being evaluated
 
     // Function to fetch and display presenters
     async function loadPresenters() {
@@ -28,41 +32,27 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
 
             if (data.result === 'success') {
-                presenterSelect.innerHTML = ''; // Clear existing options
-                presenterTableBody.innerHTML = '';  //Clear the table body
+                presenterList.innerHTML = '';  //Clear the list
+                presenterSelect.innerHTML = '';
 
                 data.presenters.forEach(presenter => {
-                    // Add option to select
+                    // Create list item for each presenter
+                    const listItem = document.createElement('li');
+                    listItem.classList.add('mb-2', 'p-4', 'bg-white', 'rounded', 'shadow', 'cursor-pointer');
+                    listItem.textContent = presenter.name;
+                    listItem.addEventListener('click', () => showEvaluationPage(presenter.name));
+                    presenterList.appendChild(listItem);
+
+                    // Add presenter to dropdown in evaluation form
                     const option = document.createElement('option');
                     option.value = presenter.name;
                     option.textContent = presenter.name;
                     presenterSelect.appendChild(option);
 
-
-                    //Add presenter to table
-                    const row = presenterTableBody.insertRow();
-                    const nameCell = row.insertCell();
-                    const materialQualityCell = row.insertCell();
-                    const knowledgeDepthCell = row.insertCell();
-                    const presentationStyleCell = row.insertCell();
-                    const topicAttractivenessCell = row.insertCell();
-                    const historyCell = row.insertCell();
-
-                    nameCell.textContent = presenter.name;
-
-                    //Create progress bar
-                    materialQualityCell.innerHTML = createProgressBar(presenter.materialQualityAvg);
-                    knowledgeDepthCell.innerHTML = createProgressBar(presenter.knowledgeDepthAvg);
-                    presentationStyleCell.innerHTML = createProgressBar(presenter.presentationStyleAvg);
-                    topicAttractivenessCell.innerHTML = createProgressBar(presenter.topicAttractivenessAvg);
-
-                    const historyButton = document.createElement('button');
-                    historyButton.textContent = 'View History';
-                    historyButton.classList.add('bg-purple-500', 'hover:bg-purple-700', 'text-white', 'font-bold', 'py-2', 'px-4', 'rounded');
-                    historyButton.addEventListener('click', () => showEvaluationHistory(presenter.name));
-                    historyCell.appendChild(historyButton);
-
                 });
+
+                showPresenterList();
+
             } else {
                 alert('Error loading presenters: ' + data.error);
             }
@@ -72,57 +62,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
-    //Helper function to create progress bars
-    function createProgressBar(value) {
-        const percentage = (value / 10) * 100;  //Assuming max score is 10
-        return `
-            <div class="progress-bar">
-                <div class="progress-bar-inner" style="width: ${percentage}%;"></div>
-                <span>${value ? value.toFixed(2) : 0}</span>
-            </div>
-        `;
+    function showPresenterList() {
+        addPresenterForm.style.display = 'block'; // Show add presenter form
+        presenterListDiv.style.display = 'block'; // Show list
+        evaluationForm.style.display = 'none'; // Hide form
     }
 
-
-    //Function to show evaluation history
-    async function showEvaluationHistory(presenterName) {
-        try {
-            const response = await fetch(`${scriptURL}?func=getEvaluationsForPresenter&presenterName=${presenterName}`);
-            const data = await response.json();
-
-            if (data.result === 'success') {
-                evaluationHistoryContent.innerHTML = ''; //Clear previous content
-
-                if (data.evaluations.length === 0) {
-                    evaluationHistoryContent.textContent = 'No evaluations yet for this presenter.';
-                } else {
-                    const ul = document.createElement('ul');
-                    data.evaluations.forEach(evaluation => {
-                        const li = document.createElement('li');
-                        li.textContent = `Evaluator: ${evaluation.evaluatorName}, Material: ${evaluation.materialQuality}, Knowledge: ${evaluation.knowledgeDepth}, Style: ${evaluation.presentationStyle}, Topic: ${evaluation.topicAttractiveness}, Timestamp: ${new Date(evaluation.timestamp).toLocaleString()}`;
-                        ul.appendChild(li);
-                    });
-                    evaluationHistoryContent.appendChild(ul);
-                }
-
-
-                evaluationHistoryModal.classList.remove('hidden');  //Show the modal
-            } else {
-                alert('Error loading evaluation history: ' + data.error);
-            }
-
-        } catch (error) {
-            console.error('Error loading evaluation history', error);
-            alert('Error loading evaluation history.');
-        }
+    function showEvaluationPage(presenterName) {
+        currentPresenterName = presenterName;
+        document.getElementById('evaluation-title').textContent = `Evaluate ${presenterName}`;
+        presenterListDiv.style.display = 'none'; // Hide list
+        addPresenterForm.style.display = 'none'; // Hide add presenter form
+        evaluationForm.style.display = 'block'; // Show evaluation form
+        // Set selected presenter in evaluation form
+        presenterSelect.value = presenterName;
     }
-
-    //Event listener for closing the modal
-    closeModalButton.addEventListener('click', () => {
-        evaluationHistoryModal.classList.add('hidden');
-    });
-
 
     // Function to add a new presenter
     addPresenterButton.addEventListener('click', async () => {
@@ -150,20 +104,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Function to submit an evaluation
     submitEvaluationButton.addEventListener('click', async () => {
-        const presenterName = presenterSelect.value;
-        const evaluatorName = evaluatorNameInput.value.trim();  //Added evaluator name
-        const materialQuality = materialQualityInput.value;
-        const knowledgeDepth = knowledgeDepthInput.value;
-        const presentationStyle = presentationStyleInput.value;
-        const topicAttractiveness = topicAttractivenessInput.value;
+        const presenterName = currentPresenterName;  // Use currently selected presenter
+        const evaluatorName = evaluatorNameInput.value.trim();
+        const materialQuality = parseInt(materialQualityInput.value);
+        const knowledgeDepth = parseInt(knowledgeDepthInput.value);
+        const presentationStyle = parseInt(presentationStyleInput.value);
+        const topicAttractiveness = parseInt(topicAttractivenessInput.value);
 
         if (!evaluatorName) {
             alert("Please enter your name.");
             return;
         }
 
-        if (!presenterName || !materialQuality || !knowledgeDepth || !presentationStyle || !topicAttractiveness) {
-            alert('Please fill out all evaluation fields.');
+        if (isNaN(materialQuality) || materialQuality < 0 || materialQuality > 10 ||
+            isNaN(knowledgeDepth) || knowledgeDepth < 0 || knowledgeDepth > 10 ||
+            isNaN(presentationStyle) || presentationStyle < 0 || presentationStyle > 10 ||
+            isNaN(topicAttractiveness) || topicAttractiveness < 0 || topicAttractiveness > 10) {
+            alert('Scores must be numbers between 0 and 10.');
             return;
         }
 
@@ -171,7 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams();
             params.append('func', 'submitEvaluation');
             params.append('presenterName', presenterName);
-            params.append('evaluatorName', evaluatorName); //Added evaluator name
+            params.append('evaluatorName', evaluatorName);
             params.append('materialQuality', materialQuality);
             params.append('knowledgeDepth', knowledgeDepth);
             params.append('presentationStyle', presentationStyle);
@@ -188,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 presentationStyleInput.value = '';
                 topicAttractivenessInput.value = '';
 
-                loadPresenters(); // Reload the presenter list
+                showPresenterList(); // Go back to presenter list
                 alert('Evaluation submitted successfully!');
             } else {
                 alert('Error submitting evaluation: ' + data.error);
@@ -198,6 +155,24 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Error submitting evaluation.');
         }
     });
+
+    // Input Validation
+    materialQualityInput.addEventListener('input', validateScore);
+    knowledgeDepthInput.addEventListener('input', validateScore);
+    presentationStyleInput.addEventListener('input', validateScore);
+    topicAttractivenessInput.addEventListener('input', validateScore);
+
+    function validateScore(event) {
+        const input = event.target;
+        let value = parseInt(input.value);
+        if (isNaN(value)) {
+            input.value = ''; // Clear if not a number
+        } else if (value < 0) {
+            input.value = '0';
+        } else if (value > 10) {
+            input.value = '10';
+        }
+    }
 
     // Load presenters on page load
     loadPresenters();
