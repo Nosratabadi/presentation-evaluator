@@ -9,16 +9,18 @@ const App = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyTmecrHh64MzoUZAAbxu_La8o2GBjks44ZOrSuKCXUskCRAtQ3XCmDdcEl7rZZS34R3A/exec';
+    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzexfMsklPUqktK6FkSTqmygQnWKJwuWpjAiUd8BZjjCRCbykdx_ZiFvvhXhmrZbIHfnQ/exec';
 
     const fetchPresenters = async () => {
         try {
-            const response = await fetch(GOOGLE_SCRIPT_URL + '?action=getPresenters');
-            if (!response.ok) throw new Error('Network response was not ok');
+            const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getPresenters`);
             const result = await response.json();
             if (result.status === 'success') {
                 setPresenters(result.data || []);
+            } else {
+                throw new Error(result.message || 'Failed to fetch data');
             }
+            setError(null);
         } catch (err) {
             console.error('Fetch error:', err);
             setError('Failed to load presenters: ' + err.message);
@@ -43,22 +45,21 @@ const App = () => {
         if (!newPresenterName.trim()) return;
 
         try {
-            const formData = new FormData();
-            formData.append('action', 'addPresenter');
-            formData.append('name', newPresenterName);
-
-            const response = await fetch(GOOGLE_SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                body: formData
+            const params = new URLSearchParams({
+                action: 'addPresenter',
+                name: newPresenterName
             });
 
-            // Since we're using no-cors, we can't read the response
-            // Wait a moment and then fetch the updated list
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            await fetchPresenters();
-            setNewPresenterName('');
-            setError(null);
+            const response = await fetch(`${GOOGLE_SCRIPT_URL}?${params.toString()}`);
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                await fetchPresenters();
+                setNewPresenterName('');
+                setError(null);
+            } else {
+                throw new Error(result.message || 'Failed to add presenter');
+            }
         } catch (err) {
             console.error('Add presenter error:', err);
             setError('Failed to add presenter: ' + err.message);
@@ -89,22 +90,25 @@ const App = () => {
                     },
                     onNewEvaluation: async (evaluation) => {
                         try {
-                            const formData = new FormData();
-                            formData.append('action', 'addEvaluation');
-                            formData.append('presenterName', currentPresenter.name);
-                            formData.append('evaluatorName', evaluation.evaluatorName);
-                            formData.append('scores', JSON.stringify(evaluation.scores));
-
-                            await fetch(GOOGLE_SCRIPT_URL, {
-                                method: 'POST',
-                                mode: 'no-cors',
-                                body: formData
+                            const params = new URLSearchParams({
+                                action: 'addEvaluation',
+                                presenterName: currentPresenter.name,
+                                evaluatorName: evaluation.evaluatorName,
+                                'scores[Material Quality]': evaluation.scores['Material Quality'],
+                                'scores[Knowledge Depth]': evaluation.scores['Knowledge Depth'],
+                                'scores[Presentation Style]': evaluation.scores['Presentation Style'],
+                                'scores[Topic Attractiveness]': evaluation.scores['Topic Attractiveness']
                             });
 
-                            // Since we're using no-cors, wait a moment and then fetch updates
-                            await new Promise(resolve => setTimeout(resolve, 1000));
-                            await fetchPresenters();
-                            setError(null);
+                            const response = await fetch(`${GOOGLE_SCRIPT_URL}?${params.toString()}`);
+                            const result = await response.json();
+
+                            if (result.status === 'success') {
+                                await fetchPresenters();
+                                setError(null);
+                            } else {
+                                throw new Error(result.message || 'Failed to add evaluation');
+                            }
                         } catch (err) {
                             console.error('Add evaluation error:', err);
                             setError('Failed to add evaluation: ' + err.message);
