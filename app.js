@@ -80,6 +80,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Function to add a new presenter
     addPresenterButton.addEventListener('click', async () => {
+        console.log("Add Presenter button clicked!"); // Debugging
+
         const presenterName = newPresenterNameInput.value.trim();
         if (!presenterName) {
             alert('Please enter a presenter name.');
