@@ -9,18 +9,19 @@ const App = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // Replace this URL with your Google Apps Script web app URL
     const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzexfMsklPUqktK6FkSTqmygQnWKJwuWpjAiUd8BZjjCRCbykdx_ZiFvvhXhmrZbIHfnQ/exec';
 
     const fetchPresenters = async () => {
         try {
-            const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getPresenters`);
+            const response = await fetch(GOOGLE_SCRIPT_URL + '?action=getPresenters');
+            if (!response.ok) throw new Error('Network response was not ok');
             const result = await response.json();
             if (result.status === 'success') {
-                setPresenters(result.data);
+                setPresenters(result.data || []);
             }
         } catch (err) {
-            setError('Failed to load presenters');
+            console.error('Fetch error:', err);
+            setError('Failed to load presenters: ' + err.message);
         } finally {
             setLoading(false);
         }
@@ -37,6 +38,33 @@ const App = () => {
         'Topic Attractiveness'
     ];
 
+    const addNewPresenter = async (e) => {
+        e.preventDefault();
+        if (!newPresenterName.trim()) return;
+
+        try {
+            const formData = new FormData();
+            formData.append('action', 'addPresenter');
+            formData.append('name', newPresenterName);
+
+            const response = await fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: formData
+            });
+
+            // Since we're using no-cors, we can't read the response
+            // Wait a moment and then fetch the updated list
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            await fetchPresenters();
+            setNewPresenterName('');
+            setError(null);
+        } catch (err) {
+            console.error('Add presenter error:', err);
+            setError('Failed to add presenter: ' + err.message);
+        }
+    };
+
     return React.createElement('div', { className: 'min-h-screen bg-gray-100 p-8' },
         error && React.createElement('div', { className: 'bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4' }, error),
         loading ? 
@@ -46,27 +74,7 @@ const App = () => {
                     presenters,
                     newPresenterName,
                     setNewPresenterName,
-                    addPresenter: async (e) => {
-                        e.preventDefault();
-                        if (newPresenterName.trim()) {
-                            try {
-                                const response = await fetch(GOOGLE_SCRIPT_URL, {
-                                    method: 'POST',
-                                    body: JSON.stringify({
-                                        action: 'addPresenter',
-                                        name: newPresenterName
-                                    })
-                                });
-                                const result = await response.json();
-                                if (result.status === 'success') {
-                                    await fetchPresenters();
-                                    setNewPresenterName('');
-                                }
-                            } catch (err) {
-                                setError('Failed to add presenter');
-                            }
-                        }
-                    },
+                    addPresenter: addNewPresenter,
                     onPresenterClick: (presenter) => {
                         setCurrentPresenter(presenter);
                         setCurrentView('evaluate');
@@ -81,20 +89,25 @@ const App = () => {
                     },
                     onNewEvaluation: async (evaluation) => {
                         try {
-                            const response = await fetch(GOOGLE_SCRIPT_URL, {
+                            const formData = new FormData();
+                            formData.append('action', 'addEvaluation');
+                            formData.append('presenterName', currentPresenter.name);
+                            formData.append('evaluatorName', evaluation.evaluatorName);
+                            formData.append('scores', JSON.stringify(evaluation.scores));
+
+                            await fetch(GOOGLE_SCRIPT_URL, {
                                 method: 'POST',
-                                body: JSON.stringify({
-                                    action: 'addEvaluation',
-                                    presenterName: currentPresenter.name,
-                                    ...evaluation
-                                })
+                                mode: 'no-cors',
+                                body: formData
                             });
-                            const result = await response.json();
-                            if (result.status === 'success') {
-                                await fetchPresenters();
-                            }
+
+                            // Since we're using no-cors, wait a moment and then fetch updates
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                            await fetchPresenters();
+                            setError(null);
                         } catch (err) {
-                            setError('Failed to add evaluation');
+                            console.error('Add evaluation error:', err);
+                            setError('Failed to add evaluation: ' + err.message);
                         }
                     }
                 })
@@ -135,7 +148,7 @@ const PresenterList = ({ presenters, newPresenterName, setNewPresenterName, addP
                     : 0;
 
                 return React.createElement('div', {
-                    key: presenter.id || presenter.name,
+                    key: presenter.name,
                     onClick: () => onPresenterClick(presenter),
                     className: 'bg-white p-6 rounded-lg shadow-sm hover:shadow-md cursor-pointer transition-shadow'
                 },
