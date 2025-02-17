@@ -1,4 +1,4 @@
-const scriptURL = 'https://script.google.com/macros/s/AKfycbxrEpYMHODlmG1aZStirM2RYk7_p9MPKQR1er0LQALoF-es06c39hVZ2IuDksfGannwmg/exec'; // Replace with your actual Web App URL
+const scriptURL = 'https://script.google.com/macros/s/AKfycbwCE1h3WfSISNsZfic0U2leKMLJrrOrXlAOnd9WXeBUK3di-1aF5PORDLQPIRIM7Ua78A/exec'; // Replace with your actual Web App URL
 
 document.addEventListener('DOMContentLoaded', () => {
     const addPresenterForm = document.getElementById('add-presenter-form');
