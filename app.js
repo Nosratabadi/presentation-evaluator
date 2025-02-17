@@ -128,8 +128,9 @@ const EvaluationView = ({ presenter, criteria, onBack, onNewEvaluation }) => {
     const [scores, setScores] = useState({});
     const [error, setError] = useState('');
     const [evaluatorName, setEvaluatorName] = useState('');
+    const [localEvaluations, setLocalEvaluations] = useState(presenter.evaluations);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         
         if (!evaluatorName.trim()) {
@@ -137,8 +138,11 @@ const EvaluationView = ({ presenter, criteria, onBack, onNewEvaluation }) => {
             return;
         }
 
-        // Check if this evaluator has already submitted
-        const hasSubmitted = presenter.evaluations.some(eval => eval.evaluatorName === evaluatorName);
+        // Strict check for duplicate evaluator
+        const hasSubmitted = localEvaluations.some(eval => 
+            eval.evaluatorName.toLowerCase().trim() === evaluatorName.toLowerCase().trim()
+        );
+        
         if (hasSubmitted) {
             setError('You have already submitted an evaluation');
             return;
@@ -156,7 +160,13 @@ const EvaluationView = ({ presenter, criteria, onBack, onNewEvaluation }) => {
             timestamp: new Date().toISOString()
         };
 
+        // Update local state first
+        setLocalEvaluations(prev => [...prev, evaluation]);
+        
+        // Then update parent state
         onNewEvaluation(evaluation);
+
+        // Reset form
         setScores({});
         setEvaluatorName('');
         setError('');
@@ -188,7 +198,7 @@ const EvaluationView = ({ presenter, criteria, onBack, onNewEvaluation }) => {
                         )
                     ),
                     React.createElement('tbody', null,
-                        presenter.evaluations.map((eval, index) => {
+                        localEvaluations.map((eval, index) => {
                             const total = Object.values(eval.scores).reduce((a, b) => a + b, 0);
                             return React.createElement('tr', { key: eval.id },
                                 React.createElement('td', { className: 'border px-4 py-2' }, index + 1),
