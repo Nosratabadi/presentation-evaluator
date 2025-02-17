@@ -10,7 +10,7 @@ const App = () => {
     const [error, setError] = useState(null);
 
     // Replace this URL with your Google Apps Script web app URL
-    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxjkuLQSIkrn_UH8xQrdfo2a8c_88QMvrshneLaX83FHhgXSpXxoA2uutE4sPC0_OLA2Q/exec';
+    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzexfMsklPUqktK6FkSTqmygQnWKJwuWpjAiUd8BZjjCRCbykdx_ZiFvvhXhmrZbIHfnQ/exec';
 
     const fetchPresenters = async () => {
         try {
